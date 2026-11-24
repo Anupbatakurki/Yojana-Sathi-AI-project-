@@ -54,7 +54,7 @@ jobs:
       - run: pytest --cov --cov-report=term --cov-report=xml
       - name: Retrieval quality gate
         run: python -m eval.evaluate --min-hit3 0.95
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.python == '3.12'
         with: { name: coverage-and-eval, path: "coverage.xml\neval/results.json" }
 
