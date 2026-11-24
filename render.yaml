@@ -1,0 +1,44 @@
+# Render Blueprint — New > Blueprint > pick this repo.
+# Deploys only after GitHub checks (CI) pass on main.
+
+# yet to deploy this 
+
+services:
+  - type: web
+    name: saathi-api
+    runtime: docker
+    plan: free                 # upgrade to starter for no cold starts
+    region: singapore          # closest Render region to India
+    dockerfilePath: ./docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: LLM_API_KEY       # your Groq key — prompted once at creation
+        sync: false
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: API_KEYS          # shared secret between UI and API, auto-generated
+        generateValue: true
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "30"
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: saathi-ui
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./docker/ui.Dockerfile
+    dockerContext: .
+    healthCheckPath: /_stcore/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: API_URL           # paste the API's public URL, e.g. https://saathi-api.onrender.com
+        sync: false
+      - key: UI_API_KEY
+        fromService:
+          type: web
+          name: saathi-api
+          envVarKey: API_KEYS

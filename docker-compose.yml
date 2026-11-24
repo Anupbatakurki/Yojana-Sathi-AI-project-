@@ -1,0 +1,59 @@
+# Local production-like stack:   docker compose up --build
+# With Prometheus + Grafana:      docker compose --profile monitoring up --build
+# Re- Lookup before deployment 
+name: yojana-saathi
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  api:
+    <<: *hardening
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    image: yojana-saathi-api:local
+    environment:
+      ENV: ${ENV:-dev}
+      API_KEYS: ${UI_API_KEY:-change-me-local-key}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-30}
+    ports: ["8000:8000"]
+    volumes: ["feedback:/app/var"]
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  ui:
+    <<: *hardening
+    build: { context: ., dockerfile: docker/ui.Dockerfile }
+    image: yojana-saathi-ui:local
+    environment:
+      API_URL: http://api:8000
+      UI_API_KEY: ${UI_API_KEY:-change-me-local-key}
+    ports: ["8501:8501"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["monitoring"]
+    volumes: ["./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    profiles: ["monitoring"]
+    ports: ["3000:3000"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/ds.yml:ro
+    depends_on: [prometheus]
+
+volumes:
+  feedback:

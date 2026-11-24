@@ -1,0 +1,19 @@
+# Example Prometheus alerting rules — load via rule_files in prometheus.yml
+groups:
+  - name: saathi
+    rules:
+      - alert: SaathiHighErrorRate
+        expr: sum(rate(saathi_http_requests_total{status=~"5.."}[5m])) / sum(rate(saathi_http_requests_total[5m])) > 0.05
+        for: 10m
+        labels: { severity: page }
+        annotations: { summary: "More than 5% of API requests are failing" }
+      - alert: SaathiLLMFailing
+        expr: sum(rate(saathi_llm_calls_total{outcome="error"}[10m])) > 0.2
+        for: 10m
+        labels: { severity: warn }
+        annotations: { summary: "LLM provider errors — users are getting extractive fallback answers" }
+      - alert: SaathiSlowAnswers
+        expr: histogram_quantile(0.95, sum by (le) (rate(saathi_http_request_seconds_bucket{route="/v1/ask"}[10m]))) > 15
+        for: 15m
+        labels: { severity: warn }
+        annotations: { summary: "p95 /v1/ask latency above 15s" }
